@@ -21,7 +21,7 @@ main proc
     cli
     mov es:[bx], offset New9hInterrupt ; New9hInterrupt -> 09h 
     mov ax, cs
-    mov es:[bx], ax
+    mov es:[bx + 2], ax
     sti
 
     mov ax, 3100h
@@ -51,8 +51,7 @@ New9hInterrupt proc
     mov ah, al
     or al, 80h
     out 61h, al
-    xchg 21h
-    mov al, ah
+    xchg ah, al
     out 61h, al
     mov al, 20h
     out 20h, al
