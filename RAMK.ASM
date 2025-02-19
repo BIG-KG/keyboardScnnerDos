@@ -4,6 +4,32 @@
 org 100h
 
 
+
+
+
+main proc
+
+	mov ax, 00              ;zero segment -> es
+    mov es, ax
+    mov bx, 08h * 4         ; calculate 09h interraption location in memory
+    mov ax, es:[bx]
+    mov Delta, ax
+    mov ax, es:[bx + 2]  
+    mov segm,  ax   
+
+    cli
+    mov es:[bx], offset DrawRegisterRamk ; New9hInterrupt -> 09h 
+    mov ax, cs
+    mov es:[bx + 2], ax
+    sti
+
+    mov ax, 3100h
+    mov dx, offset endProg
+    shr dx, 4
+    inc dx
+    int 21h
+
+
 .data
 ZXstring		db "ZX $"
 
@@ -11,16 +37,11 @@ SaveRegValue	dw  0, 0, 0, 0
 TranslatedNum	db  0, 	0,	 0,   0,   24h
 oneLine     	db  218, 196, 191, 179, 0, 179, 192, 196, 217
 
-.code
+endp
 
-;------------------------------
-;	Translete number to hex sign
-;	INPUT:		AX - translating number
-;	OUNPUT: 	TranslatedNum:
-;	DESTR:    
-;------------------------------
 
-main proc
+DrawRegisterRamk proc
+
 
 	push dx		;|
 	push cx		;|saving regs to load after interrupt 
@@ -30,10 +51,37 @@ main proc
 	push di		;|
 	push es		;|
 
-
 	mov SaveRegValue, 	  ax ;|saving regs to wright in rsmk
 	mov SaveRegValue + 2, bx ;|
 	mov SaveRegValue + 4, cx ;|
+
+	mov al, 24h
+	mov TranslatedNum + 4, al
+	mov ZXstring      + 3, al
+
+	mov al,      218
+	mov oneLine , al
+	mov al,      196
+	mov oneLine + 1 , al
+	mov al,      191
+	mov oneLine + 2, al
+	mov al,      179
+	mov oneLine + 3, al
+	mov al,      0
+	mov oneLine + 4, al
+	mov al,      179
+	mov oneLine + 5, al
+	mov al,      192
+	mov oneLine + 6, al
+	mov al,      196
+	mov oneLine + 7, al
+	mov al,      217
+	mov oneLine + 8, al
+
+
+
+
+
 
 	xor bp, bp	
 	mov ax, 	0				;ramk parametrs
@@ -43,8 +91,7 @@ main proc
 	mov di, 	offset oneLine	
 
 	call draw_ramk
-	mov ax, 	0FFFFh
-	mov bx,		0h
+
 	call writRegisters
 
 	pop es		;|
@@ -55,10 +102,12 @@ main proc
 	pop cx		;|
 	pop dx		;|
 
-	mov ax, 4c00h
-	int 21h
 
-main endp
+
+OurJmp   db 0eah
+Delta    dw 0
+segm     dw 0
+
 
 ;------------------------------
 ;	Wright 		AX, BX, CX, DX registers
@@ -290,4 +339,7 @@ Drawline proc
 	
 	endp
 
+
+
+endProg:
 end main
