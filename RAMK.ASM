@@ -4,9 +4,6 @@
 org 100h
 
 
-
-
-
 main proc
 
 	mov ax, 00              ;zero segment -> es
@@ -29,15 +26,7 @@ main proc
     inc dx
     int 21h
 
-
-.data
-ZXstring		db "ZX $"
-
-SaveRegValue	dw  0, 0, 0, 0
-TranslatedNum	db  0, 	0,	 0,   0,   24h
-oneLine     	db  218, 196, 191, 179, 0, 179, 192, 196, 217
-
-endp
+endp main
 
 
 DrawRegisterRamk proc
@@ -51,32 +40,29 @@ DrawRegisterRamk proc
 	push di		;|
 	push es		;|
 
-	mov SaveRegValue, 	  ax ;|saving regs to wright in rsmk
-	mov SaveRegValue + 2, bx ;|
-	mov SaveRegValue + 4, cx ;|
+	mov cs:SaveRegValue, 	 ax ;|saving regs to wright in rsmk
+	mov cs:SaveRegValue + 2, bx ;|
+	mov cs:SaveRegValue + 4, cx ;|
 
-	mov al, 24h
-	mov TranslatedNum + 4, al
-	mov ZXstring      + 3, al
 
-	mov al,      218
-	mov oneLine , al
-	mov al,      196
-	mov oneLine + 1 , al
-	mov al,      191
-	mov oneLine + 2, al
-	mov al,      179
-	mov oneLine + 3, al
-	mov al,      0
-	mov oneLine + 4, al
-	mov al,      179
-	mov oneLine + 5, al
-	mov al,      192
-	mov oneLine + 6, al
-	mov al,      196
-	mov oneLine + 7, al
-	mov al,      217
-	mov oneLine + 8, al
+	;mov al,      218
+	;mov oneLine , al
+	;mov al,      196
+	;mov oneLine + 1 , al
+	;mov al,      191
+	;mov oneLine + 2, al
+	;mov al,      179
+	;mov oneLine + 3, al
+	;mov al,      0
+	;mov oneLine + 4, al
+	;mov al,      179
+	;mov oneLine + 5, al
+	;mov al,      192
+	;mov oneLine + 6, al
+	;mov al,      196
+	;mov oneLine + 7, al
+	;mov al,      217
+	;mov oneLine + 8, al
 
 
 
@@ -108,6 +94,12 @@ OurJmp   db 0eah
 Delta    dw 0
 segm     dw 0
 
+ZXstring		db "ZX $"
+
+SaveRegValue	dw  0,  0,   0,   0
+TranslatedNum	db  0, 	0,	 0,   0,   24h
+oneLine     	db  218, 196, 191, 179, 0, 179, 192, 196, 217
+
 
 ;------------------------------
 ;	Wright 		AX, BX, CX, DX registers
@@ -123,7 +115,7 @@ writRegisters proc
 
 	;wrighting AX string
 	add	bl,       'A'
-	mov ZXstring, bl
+	mov cs:ZXstring, bl
 	sub bl,       'A'
 	push bx
 	mov ax,		2
@@ -135,7 +127,7 @@ writRegisters proc
 	;wrighting AX value
 	shl  bx, 	1
 	add  bx,    offset SaveRegValue
-	mov  ax, 	[bx]
+	mov  ax, 	cs:[bx]
 	sub  bx, 	offset SaveRegValue 
 	shr  bx,	1
 	push bx
@@ -172,14 +164,14 @@ registerToBytes proc
 	jge  hexPart
 
 	add bl,		'0'
-	mov [di],	bl
+	mov cs:[di],	bl
 	jmp EndOfNumberCheck
 
 
 	hexPart:
 	sub  bl, 	10
 	add  bl,	'A'
-	mov  [di],	bl 
+	mov  cs:[di],	bl 
 
 	EndOfNumberCheck:
 	shr ax, 	4
@@ -275,7 +267,7 @@ wrightSign:
 	inc di
 
 	testWrightSign:
-	mov cl,		 [di]
+	mov cl,		 cs:[di]
 	cmp cl,      '$'
 	jne CopySign
 
@@ -312,10 +304,10 @@ Drawline proc
 	add  dx, cx
 	imul dx, 2
 
-	mov cl, 	[di]
+	mov cl, 	 cs:[di]
 	mov es:[bx], cl
 
-	mov cl, 	[di + 1]	
+	mov cl, 	cs:[di + 1]	
 
 	jmp Check
 	
@@ -328,7 +320,7 @@ Drawline proc
 	cmp dx, 	bx
 	jg  Do
 
-	mov cl, 	[di + 2]
+	mov cl, 	cs:[di + 2]
 	mov es:[bx], cl
 	add bx,		2
 
