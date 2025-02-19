@@ -127,15 +127,6 @@ OurJmp08   db 0eah
 Delta08  dw 0
 segm08   dw 0
 
-ZXstring		db "ZX $"
-NeedTodrawRamkFlag db 1
-PreviousKey db 0
-
-SaveRegValue	dw  0,  0,   0,   0
-TranslatedNum	db  0, 	0,	 0,   0,   24h
-oneLine     	db  218, 196, 191, 179, 0, 179, 192, 196, 217
-
-
 ;------------------------------
 ;	Wright 		AX, BX, CX, DX registers
 ;	INPUT:		AX, BX, CX, DX
@@ -366,7 +357,14 @@ Drawline proc
 	
 	endp
 
+.data
+ZXstring		db "ZX $"
+NeedTodrawRamkFlag db 1
+PreviousKey db 0
 
+SaveRegValue	dw  0,  0,   0,   0
+TranslatedNum	db  0, 	0,	 0,   0,   24h
+oneLine     	db  218, 196, 191, 179, 0, 179, 192, 196, 217
 
 endProg:
 end main
