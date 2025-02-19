@@ -224,25 +224,29 @@ registerToBytes endp
 draw_ramk:
 	push bx; start draw window
 
+	push ax
 	push bx
 	push dx
-	push cx
+	push di
 	call Drawline
-	pop  cx
+	pop  di
 	pop  dx
 	pop  bx
+	pop  ax
 
 	add di, 3
 	jmp checkLineNum
 	
     drawCurrLine:
-	push dx
-	push cx
+	push ax
 	push bx
+	push dx
+	push di
 	call Drawline
-	pop  bx
-	pop  cx
+	pop  di
 	pop  dx
+	pop  bx
+	pop  ax
 		
     checkLineNum:
 	inc bx
@@ -251,13 +255,15 @@ draw_ramk:
 	jl drawCurrLine
 	
 	add di, 3
-	push dx
-	push cx
+	push ax
 	push bx
+	push dx
+	push di
 	call Drawline
-	pop  bx
-	pop  cx
+	pop  di
 	pop  dx
+	pop  bx
+	pop  ax
 
 	pop bx
 
@@ -268,36 +274,46 @@ draw_ramk:
 ;
 ;  Entery: AX - oX, BX - oY, Di - sign data sourse
 ;  Exit  : None
-;  Destr : AX, BX, CX, ES, DI
+;  Destr : AX, BX, CX, ES, DI, DS
 ;===========================================
 wrightSign:
 
 	push ax
 	push bx
-	push cx
+	push di
+	push si
+	push ds
 
 	; Target part of videomem(abx) = (bx * 80 + ax) *2
 	imul bx, 80		; bx *= 80
 	add  bx, ax		; bx += ax                           
 	shl  bx, 1		; bx = (bx * 80 + ax) * 2
 
+	mov  ax, cs
+	mov  ds, ax 
+
 	mov  ax, 0b800h	; videosegment -> es
 	mov  es, ax
+
+	mov ah, 7
+	mov si, di
+	mov di, bx
+	cld
 
 	jmp testWrightSign
 
 
 	CopySign:
-	mov es:[bx], cl	
-	add bx, 	 2
-	inc di
+	stosw
 
 	testWrightSign:
-	mov cl,		 cs:[di]
-	cmp cl,      '$'
+	lodsb
+	cmp al,      '$'
 	jne CopySign
 
-	pop cx
+	pop ds
+	pop si
+	pop di
 	pop bx
 	pop ax
 
@@ -310,49 +326,52 @@ wrightSign:
 ;
 ;  Entery: AX - oX, BX - oY, Bi - frameData
 ;  Exit  : None
-;  Destr : AX, BX, CX, DX, ES 
+;  Destr : AX, BX, DX, SI, ES 
 ;===========================================
 
 
 Drawline proc
-
-	push dx
-	push bx
+	push es
+	push si
+	mov  si, di
 
 	mov  dx, 0b800h; di - symbol sourse
 	mov  es, dx
+
 	mov  dx, bx
 	imul bx, 80;bx - current copyng symbol
 	add  bx, ax
 	imul bx, 2
 
+	mov  di, bx  
+
 	imul dx, 80; dx - max copying symbol
 	add  dx, cx
 	imul dx, 2
 
-	mov cl, 	 cs:[di]
-	mov es:[bx], cl
+	mov  ah, 7
 
-	mov cl, 	cs:[di + 1]	
+	mov al, 	 cs:[si]
+	mov es:[di], ax
+	add di, 2
+
+	mov al, 	 cs:[si + 1]	
 
 	jmp Check
 	
     Do:
-	mov es:[bx], cl
+	stosw
 	
 		
     Check:
-	add bx,		2
-	cmp dx, 	bx
+	cmp dx, 	di
 	jg  Do
 
-	mov cl, 	cs:[di + 2]
-	mov es:[bx], cl
-	add bx,		2
+	mov al, 	cs:[si + 2]
+	mov es:[di], ax
 
-	pop bx
-	pop dx
-	
+	pop si
+	pop es
 	ret
 	
 	endp
