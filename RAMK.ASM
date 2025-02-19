@@ -7,6 +7,7 @@ org 100h
 .data
 ZXstring		db "ZX $"
 
+SaveRegValue	dw  0, 0, 0, 0
 TranslatedNum	db  0, 	0,	 0,   0,   24h
 oneLine     	db  218, 196, 191, 179, 0, 179, 192, 196, 217
 
@@ -21,6 +22,19 @@ oneLine     	db  218, 196, 191, 179, 0, 179, 192, 196, 217
 
 main proc
 
+	push dx		;|
+	push cx		;|saving regs to load after interrupt 
+	push bx		;|
+	push ax		;|
+	push bp		;|
+	push di		;|
+	push es		;|
+
+
+	mov SaveRegValue, 	  ax ;|saving regs to wright in rsmk
+	mov SaveRegValue + 2, bx ;|
+	mov SaveRegValue + 4, cx ;|
+
 	xor bp, bp	
 	mov ax, 	0				;ramk parametrs
 	mov bx, 	2
@@ -33,12 +47,16 @@ main proc
 	mov bx,		0h
 	call writRegisters
 
+	pop es		;|
+	pop di		;|reload registers after interrapt
+	pop bp		;|
+	pop ax		;|
+	pop bx		;|
+	pop cx		;|
+	pop dx		;|
+
 	mov ax, 4c00h
 	int 21h
-
-	mov di, 	offset oneLine
-
-	ret
 
 main endp
 
@@ -50,59 +68,38 @@ main endp
 ;------------------------------
 writRegisters proc
 
-	push cx
-	push bx
-	push ax
+	xor bx, bx
+
+	wrightReg:
 
 	;wrighting AX string
-	mov ZXstring, 'A'
+	add	bl,       'A'
+	mov ZXstring, bl
+	sub bl,       'A'
+	push bx
 	mov ax,		2
-	mov bx, 	3
+	add bx, 	3
 	mov di, 	offset ZXstring
 	call wrightSign
+	pop bx
 
 	;wrighting AX value
-	pop ax
+	shl  bx, 	1
+	add  bx,    offset SaveRegValue
+	mov  ax, 	[bx]
+	sub  bx, 	offset SaveRegValue 
+	shr  bx,	1
+	push bx
 	call registerToBytes
 	mov  ax,	5
-	mov  bx, 	3
+	add  bx, 	3
 	mov  di, 	offset TranslatedNum
 	call wrightSign
+	pop bx
 
-;=======================================
-
-	;wrighting BX string
-	mov ZXstring, 'B'
-	mov ax,		2
-	mov bx, 	4
-	mov di, 	offset ZXstring
-	call wrightSign
-
-	;wrighting BX value
-	pop ax	
-	call registerToBytes
-	mov  ax,	5
-	mov  bx, 	4
-	mov  di, 	offset TranslatedNum
-	call wrightSign
-
-;=======================================
-
-	;wrighting CX string
-	mov ZXstring, 'C'
-	mov ax,		2
-	mov bx, 	5
-	mov di, 	offset ZXstring
-	call wrightSign
-
-	;wrighting CX value
-	pop ax	
-	call registerToBytes
-	mov  ax,	5
-	mov  bx, 	5
-	mov  di, 	offset TranslatedNum
-	call wrightSign
-
+	inc bx
+	cmp bx, 3
+	jne wrightReg
 
 	ret
 
@@ -204,12 +201,13 @@ draw_ramk:
 ;
 ;  Entery: AX - oX, BX - oY, Di - sign data sourse
 ;  Exit  : None
-;  Destr : AX, BX, CX ES, DI
+;  Destr : AX, BX, CX, ES, DI
 ;===========================================
 wrightSign:
 
 	push ax
 	push bx
+	push cx
 
 	; Target part of videomem(abx) = (bx * 80 + ax) *2
 	imul bx, 80		; bx *= 80
@@ -232,6 +230,7 @@ wrightSign:
 	cmp cl,      '$'
 	jne CopySign
 
+	pop cx
 	pop bx
 	pop ax
 
