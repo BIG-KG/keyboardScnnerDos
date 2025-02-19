@@ -11,12 +11,13 @@ org 100h
 main proc
 
 
-    mov ax, 00              ; calculate 09h interraption location in memory
+    mov ax, 00              ;zero segment -> es
     mov es, ax
-    mov bx, 09h * 4
-    
-    mov ax, es:[bx]         ; previous 09h value -> [Delta]
+    mov bx, 09h * 4         ; calculate 09h interraption location in memory
+    mov ax, es:[bx]
     mov Delta, ax
+    mov ax, es:[bx + 2]  
+    mov segm,  ax   
 
     cli
     mov es:[bx], offset New9hInterrupt ; New9hInterrupt -> 09h 
@@ -47,25 +48,35 @@ New9hInterrupt proc
     in al, 60h          ; 60h port -> al -> es:[bx] videoSeg bx coord
     mov es:[bx], al
 
-    in al, 61h 
-    mov ah, al
-    or al, 80h
-    out 61h, al
-    xchg ah, al
-    out 61h, al
-    mov al, 20h
-    out 20h, al
+    ;in al, 61h          ;blink tokeyboard port 
+    ;mov ah, al          ;\
+    ;or al, 80h          ;\
+    ;out 61h, al         ;\
+    ;xchg ah, al         ;\
+    ;out 61h, al         ;\
+    ;mov al, 20h         ;\
+    ;out 20h, al         ;\
 
-    pop bx
+    pop bx              ;return bx, es, ax to state before programm start
     pop es
     pop ax
-    iret
-    endp
+
+
     
 
-OurJmp  db 0eah
-        dw 0
-Delta   dw 0
+OurJmp   db 0eah
+Delta    dw 0
+segm     dw 0
+
+
+
+
+
+
+
+
+
+
 
 
 
