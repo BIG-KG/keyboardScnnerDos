@@ -10,15 +10,28 @@ main proc
     mov es, ax
     mov bx, 08h * 4         ; calculate 09h interraption location in memory
     mov ax, es:[bx]
-    mov Delta, ax
+    mov Delta08, ax
     mov ax, es:[bx + 2]  
-    mov segm,  ax   
+    mov segm08,  ax   
 
     cli
     mov es:[bx], offset DrawRegisterRamk ; New9hInterrupt -> 09h 
     mov ax, cs
     mov es:[bx + 2], ax
     sti
+;+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+	mov bx, 09h * 4         ; calculate 09h interraption location in memory
+    mov ax, es:[bx]
+    mov Delta09, ax
+    mov ax, es:[bx + 2]  
+    mov segm09,  ax   
+
+    cli
+    mov es:[bx], offset new09HINterrapt ; New9hInterrupt -> 09h 
+    mov ax, cs
+    mov es:[bx + 2], ax
+    sti
+
 
     mov ax, 3100h
     mov dx, offset endProg
@@ -29,10 +42,54 @@ main proc
 endp main
 
 
+new09HINterrapt proc
+
+	push ax         ;   save ax, es
+    push es  
+    push bx 
+
+
+    in  al, 60h          ; 60h port -> al -> es:[bx] videoSeg bx coord
+    mov bl, cs:PreviousKey; check previos key, if is not 'I' => not need to change
+	cmp bl, 17h
+	jne SaveCurrenKey
+
+	cmp al, 18h				;if currKey = 'O' => goto turning on
+	je  TurnOn	
+	cmp al, 21h				;if currKey = 'O' => goto turning on
+	je  TurnOff
+	jmp SaveCurrenKey
+
+	TurnOff:
+	mov bl, 0
+	mov cs:NeedTodrawRamkFlag, bl
+	jmp SaveCurrenKey
+
+	TurnOn:
+	mov bl, 3
+	mov cs:NeedTodrawRamkFlag, bl
+
+	SaveCurrenKey:
+	mov cs:PreviousKey, al
+
+
+	pop bx
+	pop es
+	pop ax
+
+
+OurJmp09   db 0eah
+Delta09    dw 0
+segm09     dw 0
+
+
 DrawRegisterRamk proc
 
-
 	push dx		;|
+	mov  dl, cs:NeedTodrawRamkFlag
+	cmp  dl, 0			;If not need to save ramk -> not save any other registers
+	je  NOdrawingRamk
+
 	push cx		;|saving regs to load after interrupt 
 	push bx		;|
 	push ax		;|
@@ -44,32 +101,7 @@ DrawRegisterRamk proc
 	mov cs:SaveRegValue + 2, bx ;|
 	mov cs:SaveRegValue + 4, cx ;|
 
-
-	;mov al,      218
-	;mov oneLine , al
-	;mov al,      196
-	;mov oneLine + 1 , al
-	;mov al,      191
-	;mov oneLine + 2, al
-	;mov al,      179
-	;mov oneLine + 3, al
-	;mov al,      0
-	;mov oneLine + 4, al
-	;mov al,      179
-	;mov oneLine + 5, al
-	;mov al,      192
-	;mov oneLine + 6, al
-	;mov al,      196
-	;mov oneLine + 7, al
-	;mov al,      217
-	;mov oneLine + 8, al
-
-
-
-
-
-
-	xor bp, bp	
+	xor bp, 	bp	
 	mov ax, 	0				;ramk parametrs
 	mov bx, 	2
 	mov cx, 	10
@@ -86,15 +118,18 @@ DrawRegisterRamk proc
 	pop ax		;|
 	pop bx		;|
 	pop cx		;|
+	NOdrawingRamk:
 	pop dx		;|
 
 
 
-OurJmp   db 0eah
-Delta    dw 0
-segm     dw 0
+OurJmp08   db 0eah
+Delta08  dw 0
+segm08   dw 0
 
 ZXstring		db "ZX $"
+NeedTodrawRamkFlag db 1
+PreviousKey db 0
 
 SaveRegValue	dw  0,  0,   0,   0
 TranslatedNum	db  0, 	0,	 0,   0,   24h
