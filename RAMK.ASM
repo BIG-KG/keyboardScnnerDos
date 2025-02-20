@@ -2,6 +2,7 @@
 .code 
 .186
 org 100h
+locals
 
 
 main proc
@@ -15,7 +16,7 @@ main proc
     mov segm08,  ax   
 
     cli
-    mov es:[bx], offset DrawRegisterRamk ; New9hInterrupt -> 09h 
+    mov es:[bx], offset New08HInterrapt ; New9hInterrupt -> 09h 
     mov ax, cs
     mov es:[bx + 2], ax
     sti
@@ -42,6 +43,106 @@ main proc
 endp main
 
 
+
+
+
+;=======================================
+; 	Info   : line lenth 11x6 from buffer si to vmem coord di 
+;	Entery : SI - start of the drawing array; DI - start in vmem
+;	Destroy: AX, CX, ES, DI, SI
+;	Output : None
+;=======================================
+DrawFromBuffer proc
+
+	push 0b800h
+	pop  es
+
+	cld
+
+	mov ax, 6
+
+	@@Do:
+	mov cx, 11
+	repnz movsw
+
+	sub di, 22
+	add di, 160
+	dec ax
+	jnz  @@Do
+	ret
+
+DrawFromBuffer endp
+
+;=======================================
+; 	Info   : line lenth 11x6 from VMEMcoord si to mem start di 
+;	Entery : DI - start of the drawing array; SI - start in vmem
+;	Destroy: AX, CX, DI, SI, DS, ES
+;	Output : None
+;=======================================
+SaveTobuffer proc
+
+	push cs
+	pop  es
+
+	push 0b800h
+	pop  ds
+
+	cld
+
+	mov ax, 6
+
+	@@Do:
+	mov cx, 11
+	repnz movsw 
+
+	sub si, 22
+	add si, 160
+	dec ax
+	jnz  @@Do
+	ret
+
+SaveTobuffer endp 
+;=======================================
+; 	Info   : compare second buffer and vmem delta go to first buffer 
+;	Entery : DI - start of vmem, SI - start of second, 
+;			 BX - delta betwen firs and secod buff( &second - &first)
+			 
+;	Destroy: AX, CX, DX, 
+;	Output : None
+;=======================================
+compareVmemBuff proc
+
+	push 0b800h
+	pop  es
+	cld
+
+	mov dx, 6
+
+	@@startline:
+	mov cx, 11
+
+	@@compareSimb:
+	cmpsw
+	je @@equlal	
+
+	mov ax, 		 es:[di]
+	sub si,          bx
+	mov es:[si],     ax
+	add si,   		 bx
+
+	@@equlal:
+	dec cx
+	jnz @@compareSimb
+
+	sub di,          16h
+	add di,          0A0h
+
+	dec dx
+	jnz @@startline
+	ret
+compareVmemBuff endp
+
+
 new09HINterrapt proc
 
 	push ax         ;   save ax, es
@@ -56,12 +157,12 @@ new09HINterrapt proc
 
 	cmp al, 18h				;if currKey = 'O' => goto turning on
 	je  TurnOn	
-	cmp al, 21h				;if currKey = 'O' => goto turning on
+	cmp al, 21h				;if currKey = 'O' => goto turning ons	
 	je  TurnOff
 	jmp SaveCurrenKey
 
 	TurnOff:
-	mov bl, 0
+	mov bl, 1
 	mov cs:NeedTodrawRamkFlag, bl
 	jmp SaveCurrenKey
 
@@ -83,7 +184,7 @@ Delta09    dw 0
 segm09     dw 0
 
 
-DrawRegisterRamk proc
+New08HInterrapt proc
 
 	push dx		;|
 	mov  dl, cs:NeedTodrawRamkFlag
@@ -96,22 +197,61 @@ DrawRegisterRamk proc
 	push bp		;|
 	push di		;|
 	push es		;|
+	push ds		;|
+
+	push cs
+	pop  ds
+
+	cmp  dl, 1
+	je   @@endOfDrawing
+	cmp  dl, 2
+	je   @@noTsaveVmem
+
+
+	mov  si, 2					;If need to start draw(3)
+	imul si, 160
+	mov  di, offset firstBuffer
+	push ds 
+	push es
+	call SaveTobuffer
+	pop  es
+	pop  ds
+	mov  dl,  2
+	mov NeedTodrawRamkFlag, dl
+	jmp @@startOfEndPoping
+
+	@@noTsaveVmem:
 
 	mov cs:SaveRegValue, 	 ax ;|saving regs to wright in rsmk
 	mov cs:SaveRegValue + 2, bx ;|
 	mov cs:SaveRegValue + 4, cx ;|
+	mov cs:SaveRegValue + 6, dx ;|
 
 	xor bp, 	bp	
 	mov ax, 	0				;ramk parametrs
 	mov bx, 	2
 	mov cx, 	10
-	mov dx,		6
+	mov dx,		7
 	mov di, 	offset oneLine	
 
 	call draw_ramk
 
 	call writRegisters
 
+	jmp @@startOfEndPoping
+
+
+	@@endOfDrawing:
+	mov  di, 2
+	imul di, 160
+	mov  si, offset firstBuffer
+	call DrawFromBuffer
+	mov dl,  0
+	mov NeedTodrawRamkFlag, dl
+	
+
+	@@startOfEndPoping:
+	pop ds		;|
 	pop es		;|
 	pop di		;|reload registers after interrapt
 	pop bp		;|
@@ -165,7 +305,7 @@ writRegisters proc
 	pop bx
 
 	inc bx
-	cmp bx, 3
+	cmp bx, 4
 	jne wrightReg
 
 	ret
@@ -377,9 +517,13 @@ Drawline proc
 	endp
 
 .data
+
+firstBuffer     dw 66 DUP (0000011100000001b);
+secondBuffer    dw 66 DUP (0); 
+
 ZXstring		db "ZX $"
-NeedTodrawRamkFlag db 1
-PreviousKey db 0
+NeedTodrawRamkFlag db 2
+PreviousKey db  3
 
 SaveRegValue	dw  0,  0,   0,   0
 TranslatedNum	db  0, 	0,	 0,   0,   24h
