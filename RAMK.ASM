@@ -4,6 +4,10 @@
 org 100h
 locals
 
+xStart equ 0
+yStart equ 2
+xSize  equ 11
+ySize  equ 6
 
 
 main proc
@@ -60,14 +64,14 @@ DrawFromBuffer proc
 
 	cld
 
-	mov ax, 6
+	mov ax, ySize		 ;set oY counter
 
-	@@Do:
-	mov cx, 11
+	@@Do:	
+	mov cx, xSize		 ;set oX counter
 	repnz movsw
 
-	sub di, 22
-	add di, 160
+	sub di, xSize * 2	 ;go to the start of column
+	add di, 160          ;go to the next string
 	dec ax
 	jnz  @@Do
 	ret
@@ -90,14 +94,14 @@ SaveTobuffer proc
 
 	cld
 
-	mov ax, 6
+	mov ax, ySize					;set oY counter				
 
 	@@Do:
-	mov cx, 11
+	mov cx, xSize					;set oX counter
 	repnz movsw 
 
-	sub si, 22
-	add si, 160
+	sub si, xSize * 2				;go to the start of column
+	add si, 160						;go to the next string
 	dec ax
 	jnz  @@Do
 	ret
@@ -117,25 +121,25 @@ compareVmemBuff proc
 	pop  es
 	cld
 
-	mov  dx, 6
+	mov  dx, ySize						;set oY counter
 
 	@@startline:
-	mov  cx, 11
+	mov  cx, xSize						;set oX counter
 
 	@@compareSimb:
-	cmpsw
+	cmpsw							;compare pixel from buf2 & vmem
 	je @@equlal	
 
-	mov ax, 		 es:[di]
-	sub si,          bx
-	mov ds:[si],     ax
-	add si,   		 bx
+	mov ax, 		 es:[di - 2]		;|if it differ -> save difference to buf1
+	sub si,          bx				;|				
+	mov ds:[si - 2], ax				;|
+	add si,   		 bx				;|
 
 	@@equlal:
-	dec cx
+	dec cx							
 	jnz @@compareSimb
 
-	sub di,          22
+	sub di,          xSize*2			;go to th start of next line
 	add di,          160
 
 	dec dx
@@ -224,17 +228,18 @@ New08HInterrapt proc
 	mov cs:SaveRegValue + 4, cx ;|
 	mov cs:SaveRegValue + 6, dx ;|
 
-	mov  di, 2h * 0A0h
-	mov  si, offset secondBuffer
-	mov  bx, 66*2
+	mov  di, (xStart + yStart * 80)* 2	;di - start of vmem
+	mov  si, offset secondBuffer 
+	mov  bx, offset secondBuffer 		;bx - difference betwen buffers addres
+	sub  bx, offset firstBuffer
 	call compareVmemBuff
 
 
 	xor bp, 	bp	
-	mov ax, 	0				;ramk parametrs
-	mov bx, 	2
-	mov cx, 	10
-	mov dx,		7
+	mov ax, 	xStart				;ramk parametrs
+	mov bx, 	yStart
+	mov cx, 	(xSize + xStart - 1)
+	mov dx,		(ySize + yStart - 1)
 	mov di, 	offset oneLine	
 
 	call draw_ramk
@@ -242,7 +247,7 @@ New08HInterrapt proc
 	call writRegisters
 
 
-	mov  si, 2 * 0A0h					;If need to start draw(3)
+	mov  si, (xStart + yStart * 80)* 2  ;If need to start draw(3)
 	mov  di, offset secondBuffer
 	push ds 
 	push es
@@ -253,8 +258,7 @@ New08HInterrapt proc
 
 
 	@@savecurrentVmem:
-	mov  si, 2					;If need to start draw(3)
-	imul si, 160
+	mov  si, (xStart + yStart * 80)* 2					;If need to start draw(3)
 	mov  di, offset firstBuffer
 	push ds 
 	push es

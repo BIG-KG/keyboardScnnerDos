@@ -17,7 +17,7 @@ main proc
     mov ax, es:[bx]
     mov Delta, ax
     mov ax, es:[bx + 2]  
-    mov segm,  ax   
+    mov segm,  ax
 
     cli
     mov es:[bx], offset New9hInterrupt ; New9hInterrupt -> 09h 
