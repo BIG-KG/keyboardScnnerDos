@@ -8,6 +8,8 @@ xStart equ 0
 yStart equ 2
 xSize  equ 11
 ySize  equ 6
+xdeltasign equ 2
+ydeltasign equ 1
 
 
 main proc
@@ -273,8 +275,7 @@ New08HInterrapt proc
 
 
 	@@endOfDrawing:
-	mov  di, 2
-	imul di, 160
+	mov  di, (xStart + yStart * 80)* 2
 	mov  si, offset firstBuffer
 	call DrawFromBuffer
 	mov dl,  0
@@ -296,8 +297,8 @@ New08HInterrapt proc
 
 
 OurJmp08   db 0eah
-Delta08  dw 0
-segm08   dw 0
+Delta08    dw 0
+segm08     dw 0
 
 ;------------------------------
 ;	Wright 		AX, BX, CX, DX registers
@@ -316,8 +317,8 @@ writRegisters proc
 	mov cs:ZXstring, bl
 	sub bl,       'A'
 	push bx
-	mov ax,		2
-	add bx, 	3
+	mov ax,		xStart + xdeltasign
+	add bx, 	yStart + ydeltasign
 	mov di, 	offset ZXstring
 	call wrightSign
 	pop bx
@@ -330,8 +331,8 @@ writRegisters proc
 	shr  bx,	1
 	push bx
 	call registerToBytes
-	mov  ax,	5
-	add  bx, 	3
+	mov  ax,	xStart + xdeltasign + 3
+	add  bx, 	yStart + ydeltasign
 	mov  di, 	offset TranslatedNum
 	call wrightSign
 	pop bx
