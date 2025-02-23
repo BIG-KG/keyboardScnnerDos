@@ -5,11 +5,12 @@ org 100h
 locals
 
 
+
 main proc
 
 	mov ax, 00              ;zero segment -> es
     mov es, ax
-    mov bx, 08h * 4         ; calculate 09h interraption location in memory
+    mov bx, 08h * 4         ; calculate 09h interruption location in memory
     mov ax, es:[bx]
     mov Delta08, ax
     mov ax, es:[bx + 2]  
@@ -116,10 +117,10 @@ compareVmemBuff proc
 	pop  es
 	cld
 
-	mov dx, 6
+	mov  dx, 6
 
 	@@startline:
-	mov cx, 11
+	mov  cx, 11
 
 	@@compareSimb:
 	cmpsw
@@ -127,15 +128,15 @@ compareVmemBuff proc
 
 	mov ax, 		 es:[di]
 	sub si,          bx
-	mov es:[si],     ax
+	mov ds:[si],     ax
 	add si,   		 bx
 
 	@@equlal:
 	dec cx
 	jnz @@compareSimb
 
-	sub di,          16h
-	add di,          0A0h
+	sub di,          22
+	add di,          160
 
 	dec dx
 	jnz @@startline
@@ -162,11 +163,17 @@ new09HINterrapt proc
 	jmp SaveCurrenKey
 
 	TurnOff:
+	mov bl, 0
+	cmp bl, cs:NeedTodrawRamkFlag
+	je  SaveCurrenKey
 	mov bl, 1
 	mov cs:NeedTodrawRamkFlag, bl
 	jmp SaveCurrenKey
 
 	TurnOn:
+	mov bl, 2
+	cmp bl, cs:NeedTodrawRamkFlag
+	je  SaveCurrenKey
 	mov bl, 3
 	mov cs:NeedTodrawRamkFlag, bl
 
@@ -189,7 +196,9 @@ New08HInterrapt proc
 	push dx		;|
 	mov  dl, cs:NeedTodrawRamkFlag
 	cmp  dl, 0			;If not need to save ramk -> not save any other registers
-	je  NOdrawingRamk
+	jne  @@DrawRamk
+	jmp  cs:@@NOdrawingRamk
+	@@DrawRamk:
 
 	push cx		;|saving regs to load after interrupt 
 	push bx		;|
@@ -198,27 +207,15 @@ New08HInterrapt proc
 	push di		;|
 	push es		;|
 	push ds		;|
+	push si
 
 	push cs
 	pop  ds
 
 	cmp  dl, 1
 	je   @@endOfDrawing
-	cmp  dl, 2
-	je   @@noTsaveVmem
-
-
-	mov  si, 2					;If need to start draw(3)
-	imul si, 160
-	mov  di, offset firstBuffer
-	push ds 
-	push es
-	call SaveTobuffer
-	pop  es
-	pop  ds
-	mov  dl,  2
-	mov NeedTodrawRamkFlag, dl
-	jmp @@startOfEndPoping
+	cmp  dl, 3
+	je   @@savecurrentVmem
 
 	@@noTsaveVmem:
 
@@ -226,6 +223,12 @@ New08HInterrapt proc
 	mov cs:SaveRegValue + 2, bx ;|
 	mov cs:SaveRegValue + 4, cx ;|
 	mov cs:SaveRegValue + 6, dx ;|
+
+	mov  di, 2h * 0A0h
+	mov  si, offset secondBuffer
+	mov  bx, 66*2
+	call compareVmemBuff
+
 
 	xor bp, 	bp	
 	mov ax, 	0				;ramk parametrs
@@ -238,7 +241,31 @@ New08HInterrapt proc
 
 	call writRegisters
 
+
+	mov  si, 2 * 0A0h					;If need to start draw(3)
+	mov  di, offset secondBuffer
+	push ds 
+	push es
+	call SaveTobuffer
+	pop  es
+	pop  ds
 	jmp @@startOfEndPoping
+
+
+	@@savecurrentVmem:
+	mov  si, 2					;If need to start draw(3)
+	imul si, 160
+	mov  di, offset firstBuffer
+	push ds 
+	push es
+	call SaveTobuffer
+	pop  es
+	pop  ds
+	mov  dl,  2
+	mov NeedTodrawRamkFlag, dl
+	jmp @@startOfEndPoping
+
+
 
 
 	@@endOfDrawing:
@@ -251,6 +278,7 @@ New08HInterrapt proc
 	
 
 	@@startOfEndPoping:
+	pop si
 	pop ds		;|
 	pop es		;|
 	pop di		;|reload registers after interrapt
@@ -258,7 +286,7 @@ New08HInterrapt proc
 	pop ax		;|
 	pop bx		;|
 	pop cx		;|
-	NOdrawingRamk:
+	@@NOdrawingRamk:
 	pop dx		;|
 
 
@@ -522,7 +550,7 @@ firstBuffer     dw 66 DUP (0000011100000001b);
 secondBuffer    dw 66 DUP (0); 
 
 ZXstring		db "ZX $"
-NeedTodrawRamkFlag db 2
+NeedTodrawRamkFlag db 0
 PreviousKey db  3
 
 SaveRegValue	dw  0,  0,   0,   0
