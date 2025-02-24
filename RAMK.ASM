@@ -4,12 +4,12 @@
 org 100h
 locals
 
-xStart equ 0
-yStart equ 2
-xSize  equ 11
-ySize  equ 6
-xdeltasign equ 2
-ydeltasign equ 1
+xStart equ 60			;|frame parameters
+yStart equ 2			;|
+xSize  equ 11			;|
+ySize  equ 6			;|
+xdeltasign equ 2		;|	
+ydeltasign equ 1		;|	
 
 
 main proc
@@ -132,7 +132,7 @@ compareVmemBuff proc
 	cmpsw							;compare pixel from buf2 & vmem
 	je @@equlal	
 
-	mov ax, 		 es:[di - 2]		;|if it differ -> save difference to buf1
+	mov ax, 		 es:[di - 2]    ;|if it differ -> save difference to buf1
 	sub si,          bx				;|				
 	mov ds:[si - 2], ax				;|
 	add si,   		 bx				;|
@@ -169,19 +169,19 @@ new09HINterrapt proc
 	jmp SaveCurrenKey
 
 	TurnOff:
-	mov bl, 0
+	mov bl, 0						;if already off => do nothing
 	cmp bl, cs:NeedTodrawRamkFlag
 	je  SaveCurrenKey
-	mov bl, 1
+	mov bl, 1						;if not off => flag in preOff position
 	mov cs:NeedTodrawRamkFlag, bl
 	jmp SaveCurrenKey
 
 	TurnOn:
-	mov bl, 2
+	mov bl, 2						;if already off => do nothing
 	cmp bl, cs:NeedTodrawRamkFlag
 	je  SaveCurrenKey
 	mov bl, 3
-	mov cs:NeedTodrawRamkFlag, bl
+	mov cs:NeedTodrawRamkFlag, bl   ;if not on => flag in preOn position
 
 	SaveCurrenKey:
 	mov cs:PreviousKey, al
@@ -199,21 +199,14 @@ segm09     dw 0
 
 New08HInterrapt proc
 
-	push dx		;|
-	mov  dl, cs:NeedTodrawRamkFlag
-	cmp  dl, 0			;If not need to save ramk -> not save any other registers
+	push dx							;|
+	mov  dl, cs:NeedTodrawRamkFlag	;|
+	cmp  dl, 0						;|If not need to save ramk -> not save any other registers
 	jne  @@DrawRamk
 	jmp  cs:@@NOdrawingRamk
 	@@DrawRamk:
 
-	push cx		;|saving regs to load after interrupt 
-	push bx		;|
-	push ax		;|
-	push bp		;|
-	push di		;|
-	push es		;|
-	push ds		;|
-	push si
+	push cx bx ax bp di	es ds si ;Save registers to load after program
 
 	push cs
 	pop  ds
@@ -237,39 +230,37 @@ New08HInterrapt proc
 	call compareVmemBuff
 
 
+    @@noCompareBuffers:
 	xor bp, 	bp	
-	mov ax, 	xStart				;ramk parametrs
-	mov bx, 	yStart
-	mov cx, 	(xSize + xStart - 1)
-	mov dx,		(ySize + yStart - 1)
+	mov ax, 	xStart				;|ramk parametrs
+	mov bx, 	yStart				;|
+	mov cx, 	(xSize + xStart - 1);|(xEnd)
+	mov dx,		(ySize + yStart - 1);|(yEnd)
 	mov di, 	offset oneLine	
 
+	cli
 	call draw_ramk
 
-	call writRegisters
+	call writRegisters				;wright current registers state
 
 
-	mov  si, (xStart + yStart * 80)* 2  ;If need to start draw(3)
-	mov  di, offset secondBuffer
-	push ds 
-	push es
-	call SaveTobuffer
-	pop  es
-	pop  ds
-	jmp @@startOfEndPoping
-
+	mov  si, (xStart + yStart * 80)* 2	  ;|saving current frame yo 2buffer
+	mov  di, offset secondBuffer		  ;|(2buffer in dist position)		
+	push ds es							  ;|	
+	call SaveTobuffer					  ;|()						
+	pop  es ds							  ;|	
+	jmp @@startOfEndPoping	              ;| 
+	sti
 
 	@@savecurrentVmem:
-	mov  si, (xStart + yStart * 80)* 2					;If need to start draw(3)
-	mov  di, offset firstBuffer
-	push ds 
-	push es
-	call SaveTobuffer
-	pop  es
-	pop  ds
-	mov  dl,  2
-	mov NeedTodrawRamkFlag, dl
-	jmp @@startOfEndPoping
+	mov  si, (xStart + yStart * 80)* 2	;|If need to start draw save, curr stare(3)
+	mov  di, offset firstBuffer			;|(saving to)
+	push ds es							;|
+	call SaveTobuffer					;|
+	pop  es ds							;|
+	mov  dl,  2							;|
+	mov NeedTodrawRamkFlag, dl			;|(stationary drawing flag)
+	jmp @@noCompareBuffers   			;|	
 
 
 
@@ -312,33 +303,33 @@ writRegisters proc
 
 	wrightReg:
 
-	;wrighting AX string
-	add	bl,       'A'
-	mov cs:ZXstring, bl
+
+	add	bl,       'A'				;substitute the value of the current register name
+	mov cs:ZXstring, bl				
 	sub bl,       'A'
 	push bx
-	mov ax,		xStart + xdeltasign
-	add bx, 	yStart + ydeltasign
-	mov di, 	offset ZXstring
+	mov ax,		xStart + xdeltasign	;oX sign start
+	add bx, 	yStart + ydeltasign ;oY sign start
+	mov di, 	offset ZXstring		;sign sourse
 	call wrightSign
 	pop bx
 
 	;wrighting AX value
-	shl  bx, 	1
+	shl  bx, 	1						; PreviousregValue ->ax
 	add  bx,    offset SaveRegValue
 	mov  ax, 	cs:[bx]
 	sub  bx, 	offset SaveRegValue 
 	shr  bx,	1
 	push bx
 	call registerToBytes
-	mov  ax,	xStart + xdeltasign + 3
-	add  bx, 	yStart + ydeltasign
-	mov  di, 	offset TranslatedNum
+	mov  ax,	xStart + xdeltasign + 3 ;oX sign start
+	add  bx, 	yStart + ydeltasign		;oY sign start
+	mov  di, 	offset TranslatedNum    ;sign sourse
 	call wrightSign
 	pop bx
 
 	inc bx
-	cmp bx, 4
+	cmp bx, 4							; go to next register
 	jne wrightReg
 
 	ret
@@ -348,7 +339,7 @@ endp
 registerToBytes proc
 
 	push ax
-	push bx
+	push bx			
 	push di
 
 	mov  di, offset TranslatedNum
@@ -356,26 +347,26 @@ registerToBytes proc
 
 
 	StartTranslate:
-	mov	 bl, 	01111b
-	and  bl, 	al
+	mov	 bl, 	01111b			;next 4 bits -> bl
+	and  bl, 	al					
 
-	cmp  bl, 	10
+	cmp  bl, 	10				;is will be num r alfa
 	jge  hexPart
 
-	add bl,		'0'
+	add bl,		'0'				; if is num symb (0 - 9)
 	mov cs:[di],	bl
 	jmp EndOfNumberCheck
 
 
 	hexPart:
-	sub  bl, 	10
+	sub  bl, 	10				;if is alfa symb (0Ah - 0Fh)
 	add  bl,	'A'
 	mov  cs:[di],	bl 
 
 	EndOfNumberCheck:
-	shr ax, 	4
-	dec di
-	cmp di, 	offset TranslatedNum	
+	shr ax, 	4				;so that the window (01111b) gets to the next bits
+	dec di													
+	cmp di, 	offset TranslatedNum	;if not end of number => next Step
 	jge StartTranslate		
 
 	pop di
@@ -401,7 +392,7 @@ draw_ramk:
 	push bx
 	push dx
 	push di
-	call Drawline
+	call Drawline		;drawing first line 
 	pop  di
 	pop  dx
 	pop  bx
@@ -551,10 +542,10 @@ Drawline proc
 
 .data
 
-firstBuffer     dw 66 DUP (0000011100000001b);
-secondBuffer    dw 66 DUP (0); 
+firstBuffer     dw xSize * ySize DUP (0000011100000001b);
+secondBuffer    dw xSize * ySize DUP (0); 
 
-ZXstring		db "ZX $"
+ZXstring		db "ZX:$"
 NeedTodrawRamkFlag db 0
 PreviousKey db  3
 
