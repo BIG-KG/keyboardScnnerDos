@@ -219,12 +219,12 @@ New08HInterrapt proc
 
 	push dx
 	mov bx, sp
-	mov dx, ds:[bx+6]
-	mov savedIp, dx
-	mov dx, ds:[bx+8]
-	mov savedDs, dx
+	mov dx, ss:[bx+6]
+	mov cs:savedIp, dx
+	mov dx, ss:[bx+8]
+	mov cs:savedDs, dx
 	sub bx, 4
-	mov savedSp, bx
+	mov cs:savedSp, bx
 	pop dx
 
 
@@ -359,24 +359,47 @@ writRegisters proc
 	jne wrightReg
 
 
-	ret
-
 	push bx
 	mov ax,		xStart + xdeltasign	;oX sign start
 	add bx, 	yStart + ydeltasign ;oY sign start
-	mov di, 	offset Sp_String    ;sign sourse
+	mov di, 	offset Ip_String    ;sign sourse
 	call wrightSign
 	pop bx
 
-	mov ax, 	savedSp
+	mov ax, 	cs:savedDs
 	push bx di
 	call registerToBytes
 	pop di bx
 
+	push bx
+	mov  ax,	xStart + xdeltasign + 3 ;oX sign start
+	add  bx, 	yStart + ydeltasign		;oY sign start
+	mov  di, 	offset TranslatedNum    ;sign sourse
+	call wrightSign
+	pop bx
 
+    
+	
+	inc bx 
 
+	push bx
+	mov ax,		xStart + xdeltasign	;oX sign start
+	add bx, 	yStart + ydeltasign ;oY sign start
+	mov di, 	offset Ip_String    ;sign sourse
+	call wrightSign
+	pop bx
 
+	mov ax, 	cs:savedIp
+	push bx di
+	call registerToBytes
+	pop di bx
 
+	push bx
+	mov  ax,	xStart + xdeltasign + 3 ;oX sign start
+	add  bx, 	yStart + ydeltasign		;oY sign start
+	mov  di, 	offset TranslatedNum    ;sign sourse
+	call wrightSign
+	pop bx
 
 	ret
 
@@ -569,7 +592,7 @@ secondBuffer    dw xSize * ySize DUP (0);
 
 ZXstring		db  "ZX:$"
 Ds_String       db  "DS:$"
-Ip_String       db  "IS:$"
+Ip_String       db  "IP:$"
 Sp_String       db  "SP:$"
 NeedTodrawRamkFlag db 0
 PreviousKey db  3
