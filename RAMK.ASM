@@ -4,10 +4,10 @@
 org 100h
 locals
 
-xStart equ 60			;|frame parameters
-yStart equ 2			;|
+xStart equ 69			;|frame parameters
+yStart equ 0			;|
 xSize  equ 11			;|
-ySize  equ 6			;|
+ySize  equ 9			;|
 xdeltasign equ 2		;|	
 ydeltasign equ 1		;|	
 
@@ -48,6 +48,7 @@ main proc
     int 21h
 
 endp main
+
 
 
 
@@ -149,12 +150,15 @@ compareVmemBuff proc
 	ret
 compareVmemBuff endp
 
-
+;------------------------------
+;	Checking for combinations I+O, I+F to showOn/Off
+;	INPUT:		AX, BX, CX, DX (to draw)
+;	OUNPUT: 	None
+;	DESTR: 		None
+;------------------------------
 new09HINterrapt proc
 
-	push ax         ;   save ax, es
-    push es  
-    push bx 
+	push ax es bx   ;   save ax, es
 
 
     in  al, 60h          ; 60h port -> al -> es:[bx] videoSeg bx coord
@@ -187,26 +191,45 @@ new09HINterrapt proc
 	mov cs:PreviousKey, al
 
 
-	pop bx
-	pop es
-	pop ax
+	pop bx es ax
 
 
 OurJmp09   db 0eah
 Delta09    dw 0
 segm09     dw 0
 
-
+;------------------------------
+;	Draw framw with registers
+;	INPUT:		AX, BX, CX, DX (to draw)
+;	OUNPUT: 	None
+;	DESTR: 		None
+;------------------------------
 New08HInterrapt proc
 
 	push dx							;|
+	mov cs:SaveRegValue + 6, dx     ;|
 	mov  dl, cs:NeedTodrawRamkFlag	;|
 	cmp  dl, 0						;|If not need to save ramk -> not save any other registers
 	jne  @@DrawRamk
 	jmp  cs:@@NOdrawingRamk
 	@@DrawRamk:
 
-	push cx bx ax bp di	es ds si ;Save registers to load after program
+	push bx
+	mov cs:SaveRegValue + 2, bx 
+
+	push dx
+	mov bx, sp
+	mov dx, ds:[bx+6]
+	mov savedIp, dx
+	mov dx, ds:[bx+8]
+	mov savedDs, dx
+	sub bx, 4
+	mov savedSp, bx
+	pop dx
+
+
+	
+	push cx ax bp di	es ds si ;Save registers to load after program
 
 	push cs
 	pop  ds
@@ -219,9 +242,7 @@ New08HInterrapt proc
 	@@noTsaveVmem:
 
 	mov cs:SaveRegValue, 	 ax ;|saving regs to wright in rsmk
-	mov cs:SaveRegValue + 2, bx ;|
 	mov cs:SaveRegValue + 4, cx ;|
-	mov cs:SaveRegValue + 6, dx ;|
 
 	mov  di, (xStart + yStart * 80)* 2	;di - start of vmem
 	mov  si, offset secondBuffer 
@@ -280,8 +301,8 @@ New08HInterrapt proc
 	pop di		;|reload registers after interrapt
 	pop bp		;|
 	pop ax		;|
-	pop bx		;|
 	pop cx		;|
+	pop bx		;|
 	@@NOdrawingRamk:
 	pop dx		;|
 
@@ -321,7 +342,12 @@ writRegisters proc
 	sub  bx, 	offset SaveRegValue 
 	shr  bx,	1
 	push bx
+
+	push ax bx di
 	call registerToBytes
+	pop di bx ax
+
+
 	mov  ax,	xStart + xdeltasign + 3 ;oX sign start
 	add  bx, 	yStart + ydeltasign		;oY sign start
 	mov  di, 	offset TranslatedNum    ;sign sourse
@@ -332,15 +358,38 @@ writRegisters proc
 	cmp bx, 4							; go to next register
 	jne wrightReg
 
+
+	ret
+
+	push bx
+	mov ax,		xStart + xdeltasign	;oX sign start
+	add bx, 	yStart + ydeltasign ;oY sign start
+	mov di, 	offset Sp_String    ;sign sourse
+	call wrightSign
+	pop bx
+
+	mov ax, 	savedSp
+	push bx di
+	call registerToBytes
+	pop di bx
+
+
+
+
+
+
 	ret
 
 endp
 
+;===========================================
+;  Drawing ramk
+;
+;  Entery: AX - inputRegister
+;  Exit  : TranslatedNum
+;  Destr : 	ax, bx,di
+;===========================================
 registerToBytes proc
-
-	push ax
-	push bx			
-	push di
 
 	mov  di, offset TranslatedNum
 	add  di, 3
@@ -369,10 +418,6 @@ registerToBytes proc
 	cmp di, 	offset TranslatedNum	;if not end of number => next Step
 	jge StartTranslate		
 
-	pop di
-	pop bx
-	pop ax
-
 	ret
 registerToBytes endp
 
@@ -384,50 +429,38 @@ registerToBytes endp
 
 
 
-
+;===========================================
+;  Drawing ramk
+;
+;  Entery: AX - oX, BX - oY, Di - style data sourse
+;  Exit  : None
+;  Destr : None
+;===========================================
 draw_ramk:
 	push bx; start draw window
 
-	push ax
-	push bx
-	push dx
-	push di
+	push ax bx dx di
 	call Drawline		;drawing first line 
-	pop  di
-	pop  dx
-	pop  bx
-	pop  ax
+	pop  di dx bx ax
 
 	add di, 3
 	jmp checkLineNum
 	
     drawCurrLine:
-	push ax
-	push bx
-	push dx
-	push di
-	call Drawline
-	pop  di
-	pop  dx
-	pop  bx
-	pop  ax
+	push ax bx dx di
+	call Drawline		; draw middle lines
+	pop  di dx bx ax
 		
     checkLineNum:
 	inc bx
 	
 	cmp bx, dx
-	jl drawCurrLine
+	jl drawCurrLine		;if not end if middle line => ngo next line
 	
-	add di, 3
-	push ax
-	push bx
-	push dx
-	push di
-	call Drawline
-	pop  di
-	pop  dx
-	pop  bx
-	pop  ax
+	add di, 3			;sourse to last line
+	push ax bx dx di
+	call Drawline		;drawing last lodne
+	pop  di dx bx ax
 
 	pop bx
 
@@ -442,11 +475,7 @@ draw_ramk:
 ;===========================================
 wrightSign:
 
-	push ax
-	push bx
-	push di
-	push si
-	push ds
+	push ax bx di si ds
 
 	; Target part of videomem(abx) = (bx * 80 + ax) *2
 	imul bx, 80		; bx *= 80
@@ -459,41 +488,34 @@ wrightSign:
 	mov  ax, 0b800h	; videosegment -> es
 	mov  es, ax
 
-	mov ah, 7
-	mov si, di
-	mov di, bx
+	mov ah, 7		; set color of sign
+	mov si, di		; set sourse
+	mov di, bx		; set destenation
 	cld
 
 	jmp testWrightSign
 
 
 	CopySign:
-	stosw
+	stosw					;copyng to vmem
 
 	testWrightSign:
 	lodsb
-	cmp al,      '$'
-	jne CopySign
+	cmp al,      '$'		;is end of string
+	jne CopySign		
 
-	pop ds
-	pop si
-	pop di
-	pop bx
-	pop ax
+	pop ds si di bx ax
 
 	ret
 
 
 
 ;===========================================
-;  
-;
+;  Drawing Line assording parametrs
 ;  Entery: AX - oX, BX - oY, Bi - frameData
 ;  Exit  : None
 ;  Destr : AX, BX, DX, SI, ES 
 ;===========================================
-
-
 Drawline proc
 	push es
 	push si
@@ -515,7 +537,7 @@ Drawline proc
 
 	mov  ah, 7
 
-	mov al, 	 cs:[si]
+	mov al, 	 cs:[si]		;draw first symbol
 	mov es:[di], ax
 	add di, 2
 
@@ -524,14 +546,14 @@ Drawline proc
 	jmp Check
 	
     Do:
-	stosw
+	stosw						;draw middle element
 	
 		
     Check:
-	cmp dx, 	di
+	cmp dx, 	di				; chek if not end of string
 	jg  Do
 
-	mov al, 	cs:[si + 2]
+	mov al, 	cs:[si + 2]		;drow eld element
 	mov es:[di], ax
 
 	pop si
@@ -545,9 +567,16 @@ Drawline proc
 firstBuffer     dw xSize * ySize DUP (0000011100000001b);
 secondBuffer    dw xSize * ySize DUP (0); 
 
-ZXstring		db "ZX:$"
+ZXstring		db  "ZX:$"
+Ds_String       db  "DS:$"
+Ip_String       db  "IS:$"
+Sp_String       db  "SP:$"
 NeedTodrawRamkFlag db 0
 PreviousKey db  3
+
+savedDs         dw 0
+savedIp         dw 0
+savedSp         dw 0
 
 SaveRegValue	dw  0,  0,   0,   0
 TranslatedNum	db  0, 	0,	 0,   0,   24h
