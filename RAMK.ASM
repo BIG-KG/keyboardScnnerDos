@@ -207,7 +207,8 @@ segm09     dw 0
 New08HInterrapt proc
 
 	push dx							;|
-	mov cs:SaveRegValue + 6, dx     ;|
+	mov  cs:SaveRegValue + 6, dx    ;|
+
 	mov  dl, cs:NeedTodrawRamkFlag	;|
 	cmp  dl, 0						;|If not need to save ramk -> not save any other registers
 	jne  @@DrawRamk
@@ -215,21 +216,21 @@ New08HInterrapt proc
 	@@DrawRamk:
 
 	push bx
-	mov cs:SaveRegValue + 2, bx 
+	mov  cs:SaveRegValue + 2, bx 
 
 	push dx
 	mov bx, sp
 	mov dx, ss:[bx+6]
-	mov cs:savedIp, dx
+	mov cs:SaveRegValue + 8, dx
 	mov dx, ss:[bx+8]
-	mov cs:savedDs, dx
+	mov cs:SaveRegValue + 10, dx
 	sub bx, 4
-	mov cs:savedSp, bx
+	mov cs:SaveRegValue + 12, bx
 	pop dx
 
 
 	
-	push cx ax bp di	es ds si ;Save registers to load after program
+	push cx ax bp di es ds si ;Save registers to load after program
 
 	push cs
 	pop  ds
@@ -324,16 +325,19 @@ writRegisters proc
 
 	wrightReg:
 
-
-	add	bl,       'A'				;substitute the value of the current register name
-	mov cs:ZXstring, bl				
-	sub bl,       'A'
 	push bx
-	mov ax,		xStart + xdeltasign	;oX sign start
+	push bx
+
+	mov di, bx
+	shl di, 2
+
 	add bx, 	yStart + ydeltasign ;oY sign start
-	mov di, 	offset ZXstring		;sign sourse
+	add di, 	offset Reg_String   ;sign sourse
+	mov ax,		xStart + xdeltasign	;oX sign star
+	push ds es
 	call wrightSign
-	pop bx
+	pop  es ds
+	pop  bx
 
 	;wrighting AX value
 	shl  bx, 	1						; PreviousregValue ->ax
@@ -341,7 +345,6 @@ writRegisters proc
 	mov  ax, 	cs:[bx]
 	sub  bx, 	offset SaveRegValue 
 	shr  bx,	1
-	push bx
 
 	push ax bx di
 	call registerToBytes
@@ -351,57 +354,14 @@ writRegisters proc
 	mov  ax,	xStart + xdeltasign + 3 ;oX sign start
 	add  bx, 	yStart + ydeltasign		;oY sign start
 	mov  di, 	offset TranslatedNum    ;sign sourse
+	push ds es
 	call wrightSign
+	pop  es ds
 	pop bx
 
 	inc bx
-	cmp bx, 4							; go to next register
+	cmp bx, 7							; go to next register
 	jne wrightReg
-
-
-	push bx
-	mov ax,		xStart + xdeltasign	;oX sign start
-	add bx, 	yStart + ydeltasign ;oY sign start
-	mov di, 	offset Ip_String    ;sign sourse
-	call wrightSign
-	pop bx
-
-	mov ax, 	cs:savedDs
-	push bx di
-	call registerToBytes
-	pop di bx
-
-	push bx
-	mov  ax,	xStart + xdeltasign + 3 ;oX sign start
-	add  bx, 	yStart + ydeltasign		;oY sign start
-	mov  di, 	offset TranslatedNum    ;sign sourse
-	call wrightSign
-	pop bx
-
-    
-	
-	inc bx 
-
-	push bx
-	mov ax,		xStart + xdeltasign	;oX sign start
-	add bx, 	yStart + ydeltasign ;oY sign start
-	mov di, 	offset Ip_String    ;sign sourse
-	call wrightSign
-	pop bx
-
-	mov ax, 	cs:savedIp
-	push bx di
-	call registerToBytes
-	pop di bx
-
-	push bx
-	mov  ax,	xStart + xdeltasign + 3 ;oX sign start
-	add  bx, 	yStart + ydeltasign		;oY sign start
-	mov  di, 	offset TranslatedNum    ;sign sourse
-	call wrightSign
-	pop bx
-
-	ret
 
 endp
 
@@ -498,8 +458,6 @@ draw_ramk:
 ;===========================================
 wrightSign:
 
-	push ax bx di si ds
-
 	; Target part of videomem(abx) = (bx * 80 + ax) *2
 	imul bx, 80		; bx *= 80
 	add  bx, ax		; bx += ax                           
@@ -526,8 +484,6 @@ wrightSign:
 	lodsb
 	cmp al,      '$'		;is end of string
 	jne CopySign		
-
-	pop ds si di bx ax
 
 	ret
 
@@ -590,18 +546,19 @@ Drawline proc
 firstBuffer     dw xSize * ySize DUP (0000011100000001b);
 secondBuffer    dw xSize * ySize DUP (0); 
 
-ZXstring		db  "ZX:$"
-Ds_String       db  "DS:$"
-Ip_String       db  "IP:$"
-Sp_String       db  "SP:$"
+Reg_String		db  "AX:$"
+				db  "BX:$"
+				db	"CX:$"
+				db	"DX:$"
+				db	"IP:$"
+                db  "DS:$"
+				db  "SP:$"
+
 NeedTodrawRamkFlag db 0
 PreviousKey db  3
 
-savedDs         dw 0
-savedIp         dw 0
-savedSp         dw 0
-
-SaveRegValue	dw  0,  0,   0,   0
+;                   ax  bx   cx   dx   ip   cs   sp
+SaveRegValue	dw  0,  0,   0,   0,   0,   0,   0
 TranslatedNum	db  0, 	0,	 0,   0,   24h
 oneLine     	db  218, 196, 191, 179, 0, 179, 192, 196, 217
 
